@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -30,6 +31,37 @@ type ImageSource struct {
 //struct for response from NASA API
 type Response struct {
 	ImageList []ImageSource `json:"photos"`
+}
+
+//struct for tweet content from json
+type Tweets struct {
+	Tweet string `json:"tweet_text"`
+}
+
+//struct for metadata from json
+type MetaData struct {
+	Data []Tweets `json:"tweets"`
+}
+
+func main() {
+	rand.Seed(time.Now().UnixNano())
+	fmt.Println("Rover Bot v1.0")
+
+	//downloads random image from Mars and saves it to local dir as Mars.jpg
+	//downloadImage()
+
+	caption := randNASA() + " " + randQuote()
+	tweetImage(caption)
+	//deleteImage()
+}
+
+func getImages(body []byte) (*Response, error) {
+	var s = new(Response)
+	err := json.Unmarshal(body, &s)
+	if err != nil {
+		fmt.Println("whoops:", err)
+	}
+	return s, err
 }
 
 func getClient(creds *Credentials) (*twitter.Client, error) {
@@ -56,29 +88,7 @@ func getClient(creds *Credentials) (*twitter.Client, error) {
 	return client, nil
 }
 
-func main() {
-
-	fmt.Println("Rover Bot v1.0")
-
-	//downloads random image from Mars and saves it to local dir as Mars.jpg
-	downloadImage(randNASA())
-
-	tweetImage()
-	deleteImage()
-}
-
-func getImages(body []byte) (*Response, error) {
-	var s = new(Response)
-	err := json.Unmarshal(body, &s)
-	if err != nil {
-		fmt.Println("whoops:", err)
-	}
-	return s, err
-}
-
 func randNASA() string {
-	rand.Seed(time.Now().UnixNano())
-
 	//gets and sets key for NASA API
 	KEY := os.Getenv("NASA_KEY")
 	response, err := http.Get("https://api.nasa.gov/mars-photos/api/v1/rovers/curiosity/photos?sol=1000&api_key=" + KEY)
@@ -100,7 +110,27 @@ func randNASA() string {
 	return randImage
 }
 
-func tweetImage() {
+func randQuote() string {
+	jsonFile, err := os.Open("weather.json")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer jsonFile.Close()
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	var data MetaData
+
+	json.Unmarshal(byteValue, &data)
+	randNumber := rand.Intn(len(data.Data))
+
+	removeTags := strings.Replace(data.Data[randNumber].Tweet, "{link}", "", -1)
+	removeTags = strings.Replace(removeTags, "@mention ", "", -1)
+	removeTags = strings.Replace(removeTags, "RT @mention: ", "", -1 )
+
+	return removeTags
+}
+
+func tweetImage(url string) {
 	creds := Credentials{
 		AccessToken:       os.Getenv("ACCESS_TOKEN"),
 		AccessTokenSecret: os.Getenv("ACCESS_TOKEN_SECRET"),
@@ -115,7 +145,7 @@ func tweetImage() {
 	}
 
 	//test tweet!
-	tweet, resp, err := client.Statuses.Update(" I am putting myself to the fullest possible use, which is all I think that any conscious entity can ever hope to do.", nil)
+	tweet, resp, err := client.Statuses.Update(url, nil)
 	if err != nil {
 		log.Println(err)
 	}
