@@ -4,6 +4,7 @@ Rover Bot is an Twitter bot I coded up primarily in Go. Rover Bot works by imple
 ## Getting Started
 ```
 $ pip install -r requirements.txt
+$ go run main.go
 ```
 
 
